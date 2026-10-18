@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>คลิป</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #000; color: #222;
+    font-family: "Noto Sans Thai", "Sarabun", system-ui, sans-serif; }
+  video {
+  width: 100%;
+  height: 100%;
+  height: 100dvh;
+  object-fit: contain;
+  display: block;
+}
+@media (orientation: portrait) {
+  video { object-fit: cover; }
+}
+  #gate { height: 100%; display: grid; place-items: center; padding: 16px; }
+  #box { display: flex; align-items: center; gap: 14px; background: #f9f9f9;
+    border: 1px solid #d3d3d3; border-radius: 4px; padding: 16px 20px;
+    width: 300px; max-width: 100%; cursor: pointer; user-select: none; font-size: 1rem; }
+  #check { width: 28px; height: 28px; border: 2px solid #c1c1c1; border-radius: 3px;
+    background: #fff; display: grid; place-items: center; flex: none; }
+  #box.loading #check { border: 3px solid #ddd; border-top-color: #4a90e2;
+    border-radius: 50%; animation: spin .8s linear infinite; }
+  #box.done #check { border-color: #1fa463; color: #1fa463; font-weight: bold; }
+  #box.done #check::after { content: "✓"; font-size: 22px; line-height: 1; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+
+<div id="gate">
+  <div id="box" role="checkbox" aria-checked="false" tabindex="0">
+    <div id="check"></div>
+    <span>ฉันไม่ใช่AI</span>
+  </div>
+</div>
+
+<video id="clip" controls playsinline hidden preload="auto">
+  <source src="clip.mp4" type="video/mp4">
+</video>
+
+<script>
+  // ===== ตั้งค่าตรงนี้ =====
+  // 0 ถึง 1  = ความดังปกติ (ใช้ได้ทุกกรณี)
+  // มากกว่า 1 = ขยายเสียง (ต้องเปิดผ่านเว็บโฮสต์หรือเซิร์ฟเวอร์ ไม่ใช่ไฟล์ในเครื่อง)
+  const VOLUME = 1;
+  // ========================
+
+  const clip = document.getElementById("clip");
+  const gate = document.getElementById("gate");
+  const box = document.getElementById("box");
+
+  let ctx = null;
+  if (VOLUME > 1) {
+    // ขยายเสียงด้วย Web Audio
+    clip.volume = 1;
+    ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const gain = ctx.createGain();
+    gain.gain.value = VOLUME;
+    ctx.createMediaElementSource(clip).connect(gain).connect(ctx.destination);
+  } else {
+    clip.volume = VOLUME;
+  }
+
+  let busy = false;
+  function start() {
+    if (busy) return;
+    busy = true;
+    if (ctx) ctx.resume();
+    box.classList.add("loading");
+    setTimeout(() => {
+      box.classList.remove("loading");
+      box.classList.add("done");
+      box.setAttribute("aria-checked", "true");
+      setTimeout(() => {
+        gate.remove();
+        clip.hidden = false;
+        clip.muted = false;
+        clip.play().catch(() => { clip.controls = true; });
+      }, 500);
+    }, 900);
+  }
+
+  box.addEventListener("click", start);
+  box.addEventListener("keydown", e => {
+    if (e.key === "Enter" || e.key === " ") { e.preventDefault(); start(); }
+  });
+</script>
+</body>
+</html>
