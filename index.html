@@ -130,6 +130,7 @@
   </div>
 </div>
 
+<script src="quiz.js"></script>
 <script>
   // ===== ตั้งค่าตรงนี้ =====
   // 0 ถึง 1  = ความดังปกติ (ใช้ได้ทุกกรณี)
@@ -241,9 +242,19 @@
 
   const failPopup = document.getElementById("failPopup");
   document.getElementById("quizBtn").onclick = () => {
-    // TODO: ใส่แบบทดสอบตรงนี้ภายหลัง
-    failPopup.classList.remove("show");
+   failPopup.classList.remove("show");
+    startQuiz(() => {
+      if (ctx) ctx.resume();
+      playClip();
+    });
   };
+
+    function playClip() {
+    gate.remove();
+    clip.hidden = false;
+    clip.muted = false;
+    clip.play().catch(() => { clip.controls = true; });
+  }
 
   // ----- แคปช่า -----
   let busy = false;
@@ -261,12 +272,7 @@
       }
       box.classList.add("done");
       box.setAttribute("aria-checked", "true");
-      setTimeout(() => {
-        gate.remove();
-        clip.hidden = false;
-        clip.muted = false;
-        clip.play().catch(() => { clip.controls = true; });
-      }, 500);
+      setTimeout(playClip, 200);
     }, 500);
   }
 
