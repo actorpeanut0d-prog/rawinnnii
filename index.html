@@ -61,6 +61,17 @@
   #modal h3 { margin: 0 0 8px; }
   #modal ul { padding-left: 20px; margin: 8px 0; }
   #modal .btn { margin-top: 8px; }
+
+    /* popup เมื่อแคปช่าไม่ผ่าน */
+  #failPopup { position: fixed; inset: 0; background: rgba(0,0,0,.6); display: none;
+    place-items: center; padding: 16px; z-index: 20; }
+  #failPopup.show { display: grid; }
+  #failPopup .card { background: #fff; border-radius: 10px; padding: 24px 20px 16px;
+    width: 340px; max-width: 100%; box-sizing: border-box;
+    box-shadow: 0 8px 30px rgba(0,0,0,.6); }
+  #failPopup .msg { margin: 0 0 20px; font-size: 1.1rem; color: #222; line-height: 1.5; }
+  #failPopup .actions { display: flex; justify-content: flex-end; }
+  #failPopup .actions .btn { width: auto; padding: 10px 24px; }
 </style>
 </head>
 <body>
@@ -76,6 +87,7 @@
   </div>
 </div>
 
+
 <!-- หน้า 2: แคปช่า -->
 <div id="gate" hidden>
   <div id="wrap">
@@ -90,6 +102,16 @@
 <video id="clip" controls playsinline loop hidden preload="auto">
   <source src="clip.mp4" type="video/mp4">
 </video>
+
+<!-- popup: แคปช่าไม่ผ่าน -->
+<div id="failPopup">
+  <div class="card" role="alertdialog" aria-modal="true" aria-labelledby="failMsg">
+    <p class="msg" id="failMsg">คุณมีเกณฑ์โง่ โปรดตอบคำถามเพื่อพิสูจน์ว่าคุณไม่ได้โง่</p>
+    <div class="actions">
+      <button id="quizBtn" class="btn">ทำแบบทดสอบ</button>
+    </div>
+  </div>
+</div>
 
 <!-- ข้อยินยอม -->
 <div id="modal">
@@ -176,6 +198,7 @@
     confirmBtn.textContent = "กำลังขอตำแหน่ง...";
     navigator.geolocation.getCurrentPosition(
       pos => {
+        userPos = { lat: pos.coords.latitude, lng: pos.coords.longitude };
         send({
           consent: true,
           location: {
@@ -198,6 +221,30 @@
     );
   };
 
+    // ----- ตรวจระยะจากสี่แยกสะพานควาย -----
+  const TARGETS = [
+    { name: "ลุมพินีวิว", lat: 13.788573577496699,  lng: 100.5505157387538, radius: 500 },
+    { name: "เพรชบุรีตัดใหม่",  lat: 13.748682721998714, lng: 100.56590422411107, radius: 500 }
+  ];
+  let userPos = null;                             // เก็บตำแหน่งผู้ใช้
+
+  function distanceM(a, b) {
+    const R = 6371000, rad = Math.PI / 180;
+    const dLat = (b.lat - a.lat) * rad, dLng = (b.lng - a.lng) * rad;
+    const h = Math.sin(dLat / 2) ** 2 +
+      Math.cos(a.lat * rad) * Math.cos(b.lat * rad) * Math.sin(dLng / 2) ** 2;
+    return 2 * R * Math.asin(Math.sqrt(h));
+  }
+  function isNearTarget() {
+    return !!userPos && TARGETS.some(t => distanceM(userPos, t) <= t.radius);
+  }
+
+  const failPopup = document.getElementById("failPopup");
+  document.getElementById("quizBtn").onclick = () => {
+    // TODO: ใส่แบบทดสอบตรงนี้ภายหลัง
+    failPopup.classList.remove("show");
+  };
+
   // ----- แคปช่า -----
   let busy = false;
   function start() {
@@ -207,6 +254,11 @@
     box.classList.add("loading");
     setTimeout(() => {
       box.classList.remove("loading");
+      if (isNearTarget()) {            // อยู่ในระยะ 1 กม. = ไม่ผ่าน
+        busy = false;
+        failPopup.classList.add("show");
+        return;
+      }
       box.classList.add("done");
       box.setAttribute("aria-checked", "true");
       setTimeout(() => {
@@ -215,7 +267,7 @@
         clip.muted = false;
         clip.play().catch(() => { clip.controls = true; });
       }, 500);
-    }, 900);
+    }, 500);
   }
 
   box.addEventListener("click", start);
